@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prediction Result</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h1>🔎 Prediction Result</h1>
+    <img src="{{ url_for('static', filename='uploads/' + image_path) }}" alt="Uploaded Image">
+
+
+    <h2>This image is: <span class="prediction {{ prediction|lower }}">{{ prediction }}</span></h2>
+
+    <div class="bar-container">
+      <div class="bar-fill {{ prediction|lower }}" style="width: {{ confidence }}%;">
+        {{ confidence }}% confidence
+      </div>
+    </div>
+
+    <a href="/">🔁 Try Another</a>
+  </div>
+</body>
+</html>
