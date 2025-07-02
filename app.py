@@ -1,26 +1,53 @@
-import gradio as gr
+import os
+from flask import Flask, render_template, request, redirect
 from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
 import numpy as np
-import cv2
+from werkzeug.utils import secure_filename
 
-model = load_model("model/deepfake_model.h5")
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+model = load_model('model/deepfake_quick_model.h5')
 
-def predict_image(img):
-    img = cv2.resize(img, (224, 224))
-    img = img.astype('float32') / 255.0
-    img = np.expand_dims(img, axis=0)
-    pred = model.predict(img)[0][0]
-    label = "Fake" if pred > 0.5 else "Real"
-    confidence = f"{pred*100:.2f}%" if label == "Fake" else f"{(1 - pred)*100:.2f}%"
-    return f"{label} ({confidence})"
 
-interface = gr.Interface(
-    fn=predict_image,
-    inputs=gr.Image(type="numpy", label="Upload Image"),
-    outputs=gr.Label(label="Prediction"),
-    title="DeepFake Detection",
-    description="Upload an image to check if it's Real or Fake (AI-generated).",
-    allow_flagging="never"
-)
+def predict_image(img_path):
+    img = image.load_img(img_path, target_size=(224, 224))
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
 
-interface.launch()
+    prediction = model.predict(img_array)[0][0]
+    confidence = float(prediction) * 100
+    label = "Fake" if prediction < 0.5 else "Real"
+    adjusted_confidence = confidence if label == "Real" else 100 - confidence
+    return label, round(adjusted_confidence, 2)
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    if 'file' not in request.files:
+        return redirect(request.url)
+
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(request.url)
+
+    if file:
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        prediction, confidence = predict_image(file_path)
+
+        return render_template('result.html',
+                               image_path=filename,
+                               prediction=prediction,
+                               confidence=confidence)
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
